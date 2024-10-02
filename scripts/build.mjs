@@ -3,8 +3,16 @@ import glob from 'fast-glob';
 import path from 'path';
 import { promisify } from 'util';
 import yargs from 'yargs';
+import * as url from 'url';
+import { rollup } from 'rollup';
+import { babel as rollupBabel } from '@rollup/plugin-babel';
+import rollupResolve from '@rollup/plugin-node-resolve';
+import rollupPreserveDirectives from 'rollup-plugin-preserve-directives';
+import rollupAlias from '@rollup/plugin-alias';
 import * as fs from 'fs/promises';
 import { getVersionEnvVariables, getWorkspaceRoot } from './utils.mjs';
+
+const usePackageExports = process.env.MUI_USE_PACKAGE_EXPORTS === 'true';
 
 const exec = promisify(childProcess.exec);
 
@@ -18,7 +26,7 @@ const validBundles = [
 ];
 
 async function run(argv) {
-  const { bundle, largeFiles, outDir: relativeOutDir, verbose } = argv;
+  const { bundle, largeFiles, outDir: outDirBase, verbose } = argv;
 
   if (!validBundles.includes(bundle)) {
     throw new TypeError(
@@ -36,14 +44,6 @@ async function run(argv) {
     );
   }
 
-  const env = {
-    NODE_ENV: 'production',
-    BABEL_ENV: bundle,
-    MUI_BUILD_VERBOSE: verbose,
-    MUI_BABEL_RUNTIME_VERSION: babelRuntimeVersion,
-    ...(await getVersionEnvVariables()),
-  };
-
   const babelConfigPath = path.resolve(getWorkspaceRoot(), 'babel.config.js');
   const srcDir = path.resolve('./src');
   const extensions = ['.js', '.ts', '.tsx'];
@@ -54,17 +54,27 @@ async function run(argv) {
     '**/*.spec.ts',
     '**/*.spec.tsx',
     '**/*.d.ts',
+    '**/*.test/*.*',
+    '**/test-cases/*.*',
   ];
 
-  const topLevelNonIndexFiles = glob
-    .sync(`*{${extensions.join(',')}}`, { cwd: srcDir, ignore })
-    .filter((file) => {
-      return path.basename(file, path.extname(file)) !== 'index';
-    });
-  const topLevelPathImportsCanBePackages = topLevelNonIndexFiles.length === 0;
+  let outFileExtension = {
+    node: '.js',
+    modern: '.modern.mjs',
+    stable: '.mjs',
+  }[bundle];
 
-  const outDir = path.resolve(
-    relativeOutDir,
+  let relativeOutDir = './';
+
+  if (!usePackageExports) {
+    outFileExtension = '.js';
+    const topLevelNonIndexFiles = glob
+      .sync(`*{${extensions.join(',')}}`, { cwd: srcDir, ignore })
+      .filter((file) => {
+        return path.basename(file, path.extname(file)) !== 'index';
+      });
+    const topLevelPathImportsCanBePackages = topLevelNonIndexFiles.length === 0;
+
     // We generally support top level path imports e.g.
     // 1. `import ArrowDownIcon from '@mui/icons-material/ArrowDown'`.
     // 2. `import Typography from '@mui/material/Typography'`.
@@ -73,12 +83,72 @@ async function run(argv) {
     // Different extensions are not viable yet since they require additional bundler config for users and additional transpilation steps in our repo.
     //
     // TODO v6: Switch to `exports` field.
-    {
+    relativeOutDir = {
       node: topLevelPathImportsCanBePackages ? './node' : './',
       modern: './modern',
       stable: topLevelPathImportsCanBePackages ? './' : './esm',
-    }[bundle],
-  );
+    }[bundle];
+  }
+
+  const outDir = path.resolve(outDirBase, relativeOutDir);
+
+  const env = {
+    NODE_ENV: 'production',
+    BABEL_ENV: bundle,
+    MUI_BUILD_VERBOSE: verbose,
+    MUI_BABEL_RUNTIME_VERSION: babelRuntimeVersion,
+    MUI_OUT_FILE_EXTENSION: outFileExtension,
+    ...(await getVersionEnvVariables()),
+  };
+
+  if (argv.rollup) {
+    const entryFiles = await glob(`**/*{${extensions.join(',')}}`, { cwd: srcDir, ignore });
+
+    const entries = Object.fromEntries(
+      entryFiles.map((file) => [
+        // nested/foo.js becomes nested/foo
+        file.slice(0, file.length - path.extname(file).length),
+        // This expands the relative paths to absolute paths, so e.g.
+        // src/nested/foo becomes /project/src/nested/foo.js
+        url.fileURLToPath(new URL(file, `${url.pathToFileURL(srcDir)}/`)),
+      ]),
+    );
+
+    const rollupBundle = await rollup({
+      input: entries,
+      external: (id) => /node_modules/.test(id),
+      onwarn(warning, warn) {
+        if (warning.code !== 'MODULE_LEVEL_DIRECTIVE') {
+          warn(warning);
+        }
+      },
+      plugins: [
+        rollupAlias({
+          // Mostly to resolve @mui/utils/formatMuiErrorMessage correctly, but generalizes to all packages.
+          entries: [{ find: packageJson.name, replacement: srcDir }],
+        }),
+        rollupResolve({ extensions }),
+        rollupBabel({
+          configFile: babelConfigPath,
+          extensions,
+          babelHelpers: 'runtime',
+          envName: bundle,
+        }),
+        rollupPreserveDirectives(),
+      ],
+    });
+
+    await rollupBundle.write({
+      preserveModules: true,
+      interop: 'auto',
+      exports: 'named',
+      dir: outDir,
+      format: bundle === 'node' ? 'commonjs' : 'es',
+      entryFileNames: `[name]${outFileExtension}`,
+    });
+
+    return;
+  }
 
   const babelArgs = [
     '--config-file',
@@ -92,6 +162,11 @@ async function run(argv) {
     // Need to put these patterns in quotes otherwise they might be evaluated by the used terminal.
     `"${ignore.join('","')}"`,
   ];
+
+  if (outFileExtension !== '.js') {
+    babelArgs.push('--out-file-extension', outFileExtension);
+  }
+
   if (largeFiles) {
     babelArgs.push('--compact false');
   }
@@ -130,6 +205,11 @@ yargs(process.argv.slice(2))
           describe: 'Set to `true` if you know you are transpiling large files.',
         })
         .option('out-dir', { default: './build', type: 'string' })
+        .option('rollup', {
+          default: false,
+          type: 'boolean',
+          describe: '(Experiment) Use rollup to build the files.',
+        })
         .option('verbose', { type: 'boolean' });
     },
     handler: run,

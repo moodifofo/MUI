@@ -3,6 +3,8 @@ import path from 'path';
 import fse from 'fs-extra';
 import glob from 'fast-glob';
 
+const usePackageExports = process.env.MUI_USE_PACKAGE_EXPORTS === 'true';
+
 const packagePath = process.cwd();
 const buildPath = path.join(packagePath, './build');
 
@@ -91,10 +93,49 @@ export async function typescriptCopy({ from, to }) {
   return Promise.all(cmds);
 }
 
+export async function cjsCopy({ from, to }) {
+  if (!(await fse.pathExists(to))) {
+    console.warn(`path ${to} does not exists`);
+    return [];
+  }
+
+  const files = await glob('**/*.cjs', { cwd: from });
+  const cmds = files.map((file) => fse.copy(path.resolve(from, file), path.resolve(to, file)));
+  return Promise.all(cmds);
+}
+
 export async function createPackageFile() {
   const packageData = await fse.readFile(path.resolve(packagePath, './package.json'), 'utf8');
   const { nyc, scripts, devDependencies, workspaces, ...packageDataOther } =
     JSON.parse(packageData);
+
+  const modernCondition = 'mui-modern';
+  const legacyModernPrefix = './modern';
+
+  const packageExports = {
+    '.': {
+      types: './index.d.ts',
+      import: './index.mjs',
+      [modernCondition]: './index.modern.mjs',
+      require: './index.js',
+    },
+    './*': {
+      types: './*/index.d.ts',
+      import: './*/index.mjs',
+      [modernCondition]: './*/index.modern.mjs',
+      require: './*/index.js',
+    },
+    ...packageDataOther.exports,
+  };
+
+  const exportedNames = new Set(Object.keys(packageExports));
+  for (const exportedName of exportedNames) {
+    const modernName = exportedName.replace(/^\./, legacyModernPrefix);
+    const modernExport = packageExports[exportedName][modernCondition] ?? null;
+    if (typeof modernExport === 'string' && !exportedNames.has(modernName)) {
+      packageExports[modernName] = modernExport;
+    }
+  }
 
   const newPackageData = {
     ...packageDataOther,
@@ -105,8 +146,13 @@ export async function createPackageFile() {
             ? './node/index.js'
             : './index.js',
           module: fse.existsSync(path.resolve(buildPath, './esm/index.js'))
-            ? './esm/index.js'
-            : './index.js',
+            ? `./esm/index${usePackageExports ? '.mjs' : '.js'}`
+            : `./index${usePackageExports ? '.mjs' : '.js'}`,
+        }
+      : {}),
+    ...(usePackageExports
+      ? {
+          exports: packageExports,
         }
       : {}),
   };

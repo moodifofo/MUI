@@ -61,6 +61,10 @@
       "useTheme": "@pigment-css/react/exports/useTheme"
     }
   },
+  "exports": {
+    "./styles.css": "./styles.css",
+    "./modern/styles.css": "./styles.css"
+  },
   "engines": {
     "node": ">=14.0.0"
   }

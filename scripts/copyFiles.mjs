@@ -6,7 +6,10 @@ import {
   includeFileInBuild,
   prepend,
   typescriptCopy,
+  cjsCopy,
 } from './copyFilesUtils.mjs';
+
+const usePackageExports = process.env.MUI_USE_PACKAGE_EXPORTS === 'true';
 
 const packagePath = process.cwd();
 const buildPath = path.join(packagePath, './build');
@@ -22,7 +25,7 @@ async function addLicense(packageData) {
  */
 `;
   await Promise.all(
-    ['./index.js', './modern/index.js', './node/index.js'].map(async (file) => {
+    ['./index.js', './esm/index.js', './modern/index.js', './node/index.js'].map(async (file) => {
       try {
         await prepend(path.resolve(buildPath, file), license);
       } catch (err) {
@@ -41,6 +44,8 @@ async function run() {
   try {
     // TypeScript
     await typescriptCopy({ from: srcPath, to: buildPath });
+    // cjs
+    await cjsCopy({ from: srcPath, to: buildPath });
 
     const packageData = await createPackageFile();
 
@@ -53,7 +58,9 @@ async function run() {
 
     await addLicense(packageData);
 
-    await createModulePackages({ from: srcPath, to: buildPath });
+    if (!usePackageExports) {
+      await createModulePackages({ from: srcPath, to: buildPath });
+    }
   } catch (err) {
     console.error(err);
     process.exit(1);

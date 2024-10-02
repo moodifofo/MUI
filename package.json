@@ -11,7 +11,7 @@
     "build:ci": "lerna run build --ignore docs --concurrency 8 --skip-nx-cache",
     "build:public": "lerna run --no-private build",
     "build:public:ci": "lerna run --no-private build --concurrency 8 --skip-nx-cache",
-    "build:codesandbox": "NODE_OPTIONS=\"--max_old_space_size=4096\" lerna run --concurrency 8 --scope \"@mui/*\" --scope \"@mui-internal/*\" --no-private build",
+    "build:codesandbox": "MUI_USE_PACKAGE_EXPORTS=true NODE_OPTIONS=\"--max_old_space_size=4096\" lerna run --concurrency 8 --scope \"@mui/*\" --scope \"@mui-internal/*\" --no-private build",
     "release:version": "lerna version --no-changelog --no-push --no-git-tag-version --no-private --force-publish=@mui/core-downloads-tracker",
     "release:build": "lerna run --concurrency 8 --no-private build --skip-nx-cache",
     "release:changelog": "node scripts/releaseChangelog.mjs",
@@ -96,7 +96,8 @@
     "nx_test_karma": "cross-env NODE_ENV=test karma start test/karma.conf.js",
     "nx_test_regressions_run": "mocha --config test/regressions/.mocharc.js --delay 'test/regressions/**/*.test.js'",
     "nx_test_regressions_pigment_css_run": "mocha --config apps/pigment-css-vite-app/.mocharc.cjs --delay 'apps/pigment-css-vite-app/**/*.test.js'",
-    "nx_test_unit": "cross-env NODE_ENV=test mocha 'packages/**/*.test.{js,ts,tsx}' 'packages-internal/**/*.test.{js,ts,tsx}' 'docs/**/*.test.{js,ts,tsx}'"
+    "nx_test_unit": "cross-env NODE_ENV=test mocha 'packages/**/*.test.{js,ts,tsx}' 'packages-internal/**/*.test.{js,ts,tsx}' 'docs/**/*.test.{js,ts,tsx}'",
+    "clean": "pnpm -r exec rm -rf build"
   },
   "dependencies": {
     "@googleapis/sheets": "^9.3.1",
@@ -127,6 +128,9 @@
     "@next/eslint-plugin-next": "^14.2.13",
     "@octokit/rest": "^21.0.2",
     "@pigment-css/react": "0.0.23",
+    "@rollup/plugin-alias": "^5.1.0",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-node-resolve": "^15.2.3",
     "@playwright/test": "1.47.2",
     "@types/babel__core": "^7.20.5",
     "@types/fs-extra": "^11.0.4",
@@ -188,6 +192,8 @@
     "pretty-quick": "^4.0.0",
     "process": "^0.11.10",
     "rimraf": "^6.0.1",
+    "rollup": "^4.20.0",
+    "rollup-plugin-preserve-directives": "^0.4.0",
     "serve": "^14.2.3",
     "stylelint": "^15.11.0",
     "stylelint-config-standard": "^34.0.0",
