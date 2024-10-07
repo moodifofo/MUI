@@ -1,5 +1,5 @@
 import { getPath } from '@mui/system/style';
-import { alpha } from '@mui/system/colorManipulator';
+import { unstable_alpha as alpha, hexToRgb } from '@mui/system/colorManipulator';
 import type { Theme } from '../styles';
 
 const getTextDecoration = <T extends Theme>({
@@ -16,7 +16,7 @@ const getTextDecoration = <T extends Theme>({
   if ('vars' in theme && channelColor) {
     return `rgba(${channelColor} / 0.4)`;
   }
-  return alpha(color, 0.4);
+  return hexToRgb(alpha(color, 0.4));
 };
 
 export default getTextDecoration;
