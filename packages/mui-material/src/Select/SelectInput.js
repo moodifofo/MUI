@@ -115,6 +115,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
     labelId,
     MenuProps = {},
     multiple,
+    nativeLike,
     name,
     onBlur,
     onChange,
@@ -266,12 +267,17 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
     }
 
     if (multiple) {
-      newValue = Array.isArray(value) ? value.slice() : [];
-      const itemIndex = value.indexOf(child.props.value);
-      if (itemIndex === -1) {
-        newValue.push(child.props.value);
+      if (nativeLike && !event.ctrlKey) {
+        // replacing instead of toggling selection
+        newValue = [child.props.value];
       } else {
-        newValue.splice(itemIndex, 1);
+        newValue = Array.isArray(value) ? value.slice() : [];
+        const itemIndex = value.indexOf(child.props.value);
+        if (itemIndex === -1) {
+          newValue.push(child.props.value);
+        } else {
+          newValue.splice(itemIndex, 1);
+        }
       }
     } else {
       newValue = child.props.value;
@@ -300,7 +306,7 @@ const SelectInput = React.forwardRef(function SelectInput(props, ref) {
       }
     }
 
-    if (!multiple) {
+    if (!multiple || (nativeLike && !event.ctrlKey)) {
       update(false, event);
     }
   };
@@ -653,6 +659,10 @@ SelectInput.propTypes = {
    * Name attribute of the `select` or hidden `input` element.
    */
   name: PropTypes.string,
+  /**
+   * If `true`, multiple selection is available only when ctrl key is pressed.
+   */
+  nativeLike: PropTypes.bool,
   /**
    * @ignore
    */
