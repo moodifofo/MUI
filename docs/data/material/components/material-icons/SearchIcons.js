@@ -515,7 +515,6 @@ const Input = styled(InputBase)({
 const allIconsMap = {};
 const themeRegEx = /(Outlined|Rounded|TwoTone|Sharp)$/g;
 
-console.time('icons');
 const allIcons = Object.keys(mui)
   .sort() // Show ASC
   .map((importName) => {
@@ -543,27 +542,25 @@ const allIcons = Object.keys(mui)
     allIconsMap[importName] = icon;
     return icon;
   });
-console.timeEnd('icons');
 
-function addSuffixes(term, minLength){
+function addSuffixes(term, minLength) {
   if (term == null) {
     return undefined;
   }
 
   const tokens = [];
 
-  for (let i = 0; i <= term.length - minLength; i+= 1) {
+  for (let i = 0; i <= term.length - minLength; i += 1) {
     tokens.push(term.slice(i).toLowerCase());
   }
 
   return tokens;
 }
 
-console.time('addAll');
 const miniSearch = new MiniSearch({
   fields: ['searchable'], // fields to index for full-text search
-  processTerm: (term) => addSuffixes(term, 3),
-  storeFields: ['name' ,'Component'],
+  processTerm: (term) => addSuffixes(term, 4),
+  storeFields: ['name', 'Component'],
   searchOptions: {
     processTerm: MiniSearch.getDefault('processTerm'),
     prefix: true,
@@ -571,12 +568,54 @@ const miniSearch = new MiniSearch({
     boostDocument: (documentId, term, storedFields) => {
       // Show exact match first
       return term.toLowerCase() === storedFields.name.toLowerCase() ? 2 : 1;
-    }
-  }
+    },
+  },
 });
 
-miniSearch.addAll(allIcons);
-console.timeEnd('addAll');
+// Copied from mui-x/packages/x-data-grid-generator/src/services/asyncWorker.ts
+// https://lucaong.github.io/minisearch/classes/MiniSearch.MiniSearch.html#addAllAsync is crap.
+function asyncWorker({ work, tasks, done }) {
+  const myNonEssentialWork = (deadline) => {
+    // If there is a surplus time in the frame, or timeout
+    while (
+      (deadline.timeRemaining() > 0 || deadline.didTimeout) &&
+      tasks.current > 0
+    ) {
+      work();
+    }
+
+    if (tasks.current > 0) {
+      requestIdleCallback(myNonEssentialWork);
+    } else {
+      done();
+    }
+  };
+
+  // Don't use requestIdleCallback if the time is mock, better to run synchronously in such case.
+  if (typeof requestIdleCallback === 'function' && !requestIdleCallback.clock) {
+    requestIdleCallback(myNonEssentialWork);
+  } else {
+    while (tasks.current > 0) {
+      work();
+    }
+    done();
+  }
+}
+
+const indexation = new Promise((resolve) => {
+  const tasks = { current: allIcons.length };
+
+  function work() {
+    miniSearch.addAll([allIcons[tasks.current - 1]]);
+    tasks.current -= 1;
+  }
+
+  asyncWorker({
+    tasks,
+    work,
+    done: () => resolve(),
+  });
+});
 
 /**
  * Returns the last defined value that has been passed in [value]
@@ -596,6 +635,13 @@ export default function SearchIcons() {
   const [selectedIcon, setSelectedIcon] = useQueryParameterState('selected', '');
   const [query, setQuery] = useQueryParameterState('query', '');
 
+  const allThemeIcons = React.useMemo(
+    () => allIcons.filter((icon) => theme === icon.theme),
+    [theme],
+  );
+
+  const [icons, setIcons] = React.useState(allThemeIcons);
+
   const handleOpenClick = React.useCallback(
     (event) => {
       setSelectedIcon(event.currentTarget.getAttribute('title'));
@@ -607,19 +653,24 @@ export default function SearchIcons() {
     setSelectedIcon('');
   }, [setSelectedIcon]);
 
-  const icons = React.useMemo(() => {
+  React.useEffect(() => {
     if (query === '') {
-      return allIcons.filter((icon) => theme === icon.theme);
+      setIcons(allThemeIcons);
+      return;
     }
 
-    console.time('Search');
-    const keys = miniSearch.search(query);
-    console.timeEnd('Search');
+    async function search() {
+      await indexation;
+      const keys = miniSearch.search(query);
 
-    return keys
-      .map((key) => allIconsMap[key.id])
-      .filter((icon) => theme === icon.theme);
-  }, [query, theme]);
+      setIcons(
+        keys
+          .map((key) => allIconsMap[key.id])
+          .filter((icon) => theme === icon.theme),
+      );
+    }
+    search();
+  }, [query, theme, allThemeIcons]);
 
   const deferredIcons = React.useDeferredValue(icons);
 
