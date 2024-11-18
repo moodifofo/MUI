@@ -715,9 +715,6 @@ importers:
       final-form:
         specifier: ^4.20.10
         version: 4.20.10
-      flexsearch:
-        specifier: ^0.7.43
-        version: 0.7.43
       fs-extra:
         specifier: ^11.2.0
         version: 11.2.0
@@ -745,6 +742,9 @@ importers:
       material-ui-popup-state:
         specifier: ^5.3.1
         version: 5.3.1(@mui/material@packages+mui-material+build)(react@18.3.1)
+      minisearch:
+        specifier: ^7.1.0
+        version: 7.1.0
       next:
         specifier: ^14.2.17
         version: 14.2.17(@babel/core@7.26.0)(@opentelemetry/api@1.8.0)(@playwright/test@1.48.2)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -8090,9 +8090,6 @@ packages:
   flatted@3.2.9:
     resolution: {integrity: sha512-36yxDn5H7OFZQla0/jFJmbIKTdZAQHngCedGxiMmpNfEZM0sdEeT+WczLQrjK6D7o2aiyLYDnkw0R3JK0Qv1RQ==}
 
-  flexsearch@0.7.43:
-    resolution: {integrity: sha512-c5o/+Um8aqCSOXGcZoqZOm+NqtVwNsvVpWv6lfmSclU954O3wvQKxxK8zj74fPaSJbXpSLTs4PRhh+wnoCXnKg==}
-
   flow-enums-runtime@0.0.6:
     resolution: {integrity: sha512-3PYnM29RFXwvAN6Pc/scUfkI7RwhQ/xqyLUyPNlXUp9S40zI8nup9tUSrTLSVnWGBN38FNiGWbwZOB6uR4OGdw==}
 
@@ -10007,6 +10004,9 @@ packages:
   minipass@7.1.2:
     resolution: {integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==}
     engines: {node: '>=16 || 14 >=14.17'}
+
+  minisearch@7.1.0:
+    resolution: {integrity: sha512-tv7c/uefWdEhcu6hvrfTihflgeEi2tN6VV7HJnCjK6VxM75QQJh4t9FwJCsA2EsRS8LCnu3W87CuGPWMocOLCA==}
 
   minizlib@2.1.2:
     resolution: {integrity: sha512-bAxsR8BVfj60DWXHE3u30oHzfl4G7khkSuPW+qvpd7jFRHm7dLxOjUk1EHACJ/hxLY8phGJ0YhYHZo7jil7Qdg==}
@@ -20225,8 +20225,6 @@ snapshots:
 
   flatted@3.2.9: {}
 
-  flexsearch@0.7.43: {}
-
   flow-enums-runtime@0.0.6: {}
 
   flow-parser@0.206.0: {}
@@ -22660,6 +22658,8 @@ snapshots:
   minipass@5.0.0: {}
 
   minipass@7.1.2: {}
+
+  minisearch@7.1.0: {}
 
   minizlib@2.1.2:
     dependencies:

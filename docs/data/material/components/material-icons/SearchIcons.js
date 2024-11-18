@@ -15,7 +15,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Button from '@mui/material/Button';
-import flexsearch from 'flexsearch';
 import SearchIcon from '@mui/icons-material/Search';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -25,6 +24,7 @@ import * as mui from '@mui/icons-material';
 import { Link } from '@mui/docs/Link';
 import { useTranslate } from '@mui/docs/i18n';
 import useQueryParameterState from 'docs/src/modules/utils/useQueryParameterState';
+import MiniSearch from 'minisearch';
 
 // For Debugging
 // import Menu from '@mui/icons-material/Menu';
@@ -49,8 +49,6 @@ import useQueryParameterState from 'docs/src/modules/utils/useQueryParameterStat
 // import DeleteForeverSharp from '@mui/icons-material/DeleteForeverSharp';
 import { HighlightedCode } from '@mui/docs/HighlightedCode';
 import synonyms from './synonyms';
-
-const FlexSearchIndex = flexsearch.Index;
 
 // const mui = {
 //   ExitToApp,
@@ -518,39 +516,110 @@ const Input = styled(InputBase)({
   flex: 1,
 });
 
-const searchIndex = new FlexSearchIndex({
-  tokenize: 'full',
-});
-
 const allIconsMap = {};
+const themeRegEx = /(Outlined|Rounded|TwoTone|Sharp)$/g;
+
 const allIcons = Object.keys(mui)
-  .sort()
+  .sort() // Show ASC
   .map((importName) => {
     let theme = 'Filled';
     let name = importName;
 
-    for (const currentTheme of ['Outlined', 'Rounded', 'TwoTone', 'Sharp']) {
-      if (importName.endsWith(currentTheme)) {
-        theme = currentTheme === 'TwoTone' ? 'Two tone' : currentTheme;
-        name = importName.slice(0, -currentTheme.length);
-        break;
-      }
+    const matchTheme = importName.match(themeRegEx);
+    if (matchTheme !== null) {
+      theme = matchTheme[0] === 'TwoTone' ? 'Two tone' : matchTheme[0];
+      name = importName.slice(0, -matchTheme[0].length);
     }
     let searchable = name;
     if (synonyms[searchable]) {
       searchable += ` ${synonyms[searchable]}`;
     }
-    searchIndex.add(importName, searchable);
 
     const icon = {
+      id: importName, // used by miniSearch
       importName,
       name,
       theme,
+      searchable,
       Component: mui[importName],
     };
     allIconsMap[importName] = icon;
     return icon;
   });
+
+function addSuffixes(term, minLength) {
+  if (term == null) {
+    return undefined;
+  }
+
+  const tokens = [];
+
+  for (let i = 0; i <= term.length - minLength; i += 1) {
+    tokens.push(term.slice(i).toLowerCase());
+  }
+
+  return tokens;
+}
+
+const miniSearch = new MiniSearch({
+  fields: ['searchable'], // fields to index for full-text search
+  processTerm: (term) => addSuffixes(term, 4),
+  storeFields: ['name', 'Component'],
+  searchOptions: {
+    processTerm: MiniSearch.getDefault('processTerm'),
+    prefix: true,
+    fuzzy: 0.1, // Allow some typo
+    boostDocument: (documentId, term, storedFields) => {
+      // Show exact match first
+      return term.toLowerCase() === storedFields.name.toLowerCase() ? 2 : 1;
+    },
+  },
+});
+
+// Copied from mui-x/packages/x-data-grid-generator/src/services/asyncWorker.ts
+// https://lucaong.github.io/minisearch/classes/MiniSearch.MiniSearch.html#addAllAsync is crap.
+function asyncWorker({ work, tasks, done }) {
+  const myNonEssentialWork = (deadline) => {
+    // If there is a surplus time in the frame, or timeout
+    while (
+      (deadline.timeRemaining() > 0 || deadline.didTimeout) &&
+      tasks.current > 0
+    ) {
+      work();
+    }
+
+    if (tasks.current > 0) {
+      requestIdleCallback(myNonEssentialWork);
+    } else {
+      done();
+    }
+  };
+
+  // Don't use requestIdleCallback if the time is mock, better to run synchronously in such case.
+  if (typeof requestIdleCallback === 'function' && !requestIdleCallback.clock) {
+    requestIdleCallback(myNonEssentialWork);
+  } else {
+    while (tasks.current > 0) {
+      work();
+    }
+    done();
+  }
+}
+
+const indexation = new Promise((resolve) => {
+  const tasks = { current: allIcons.length };
+
+  function work() {
+    miniSearch.addAll([allIcons[tasks.current - 1]]);
+    tasks.current -= 1;
+  }
+
+  asyncWorker({
+    tasks,
+    work,
+    done: () => resolve(),
+  });
+});
 
 /**
  * Returns the last defined value that has been passed in [value]
@@ -570,6 +639,13 @@ export default function SearchIcons() {
   const [selectedIcon, setSelectedIcon] = useQueryParameterState('selected', '');
   const [query, setQuery] = useQueryParameterState('query', '');
 
+  const allThemeIcons = React.useMemo(
+    () => allIcons.filter((icon) => theme === icon.theme),
+    [theme],
+  );
+
+  const [icons, setIcons] = React.useState(allThemeIcons);
+
   const handleOpenClick = React.useCallback(
     (event) => {
       setSelectedIcon(event.currentTarget.getAttribute('title'));
@@ -581,12 +657,24 @@ export default function SearchIcons() {
     setSelectedIcon('');
   }, [setSelectedIcon]);
 
-  const icons = React.useMemo(() => {
-    const keys = query === '' ? null : searchIndex.search(query, { limit: 3000 });
-    return (keys === null ? allIcons : keys.map((key) => allIconsMap[key])).filter(
-      (icon) => theme === icon.theme,
-    );
-  }, [query, theme]);
+  React.useEffect(() => {
+    if (query === '') {
+      setIcons(allThemeIcons);
+      return;
+    }
+
+    async function search() {
+      await indexation;
+      const keys = miniSearch.search(query);
+
+      setIcons(
+        keys
+          .map((key) => allIconsMap[key.id])
+          .filter((icon) => theme === icon.theme),
+      );
+    }
+    search();
+  }, [query, theme, allThemeIcons]);
 
   const deferredIcons = React.useDeferredValue(icons);
 
