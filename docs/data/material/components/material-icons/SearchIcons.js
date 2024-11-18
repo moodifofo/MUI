@@ -15,7 +15,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Button from '@mui/material/Button';
-import flexsearch from 'flexsearch';
 import SearchIcon from '@mui/icons-material/Search';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -25,6 +24,7 @@ import * as mui from '@mui/icons-material';
 import { Link } from '@mui/docs/Link';
 import { useTranslate } from '@mui/docs/i18n';
 import useQueryParameterState from 'docs/src/modules/utils/useQueryParameterState';
+import MiniSearch from 'minisearch';
 
 // For Debugging
 // import Menu from '@mui/icons-material/Menu';
@@ -49,8 +49,6 @@ import useQueryParameterState from 'docs/src/modules/utils/useQueryParameterStat
 // import DeleteForeverSharp from '@mui/icons-material/DeleteForeverSharp';
 import { HighlightedCode } from '@mui/docs/HighlightedCode';
 import synonyms from './synonyms';
-
-const FlexSearchIndex = flexsearch.Index;
 
 // const mui = {
 //   ExitToApp,
@@ -514,39 +512,71 @@ const Input = styled(InputBase)({
   flex: 1,
 });
 
-const searchIndex = new FlexSearchIndex({
-  tokenize: 'full',
-});
-
 const allIconsMap = {};
+const themeRegEx = /(Outlined|Rounded|TwoTone|Sharp)$/g;
+
+console.time('icons');
 const allIcons = Object.keys(mui)
-  .sort()
+  .sort() // Show ASC
   .map((importName) => {
     let theme = 'Filled';
     let name = importName;
 
-    for (const currentTheme of ['Outlined', 'Rounded', 'TwoTone', 'Sharp']) {
-      if (importName.endsWith(currentTheme)) {
-        theme = currentTheme === 'TwoTone' ? 'Two tone' : currentTheme;
-        name = importName.slice(0, -currentTheme.length);
-        break;
-      }
+    const matchTheme = importName.match(themeRegEx);
+    if (matchTheme !== null) {
+      theme = matchTheme[0] === 'TwoTone' ? 'Two tone' : matchTheme[0];
+      name = importName.slice(0, -matchTheme[0].length);
     }
     let searchable = name;
     if (synonyms[searchable]) {
       searchable += ` ${synonyms[searchable]}`;
     }
-    searchIndex.add(importName, searchable);
 
     const icon = {
+      id: importName, // used by miniSearch
       importName,
       name,
       theme,
+      searchable,
       Component: mui[importName],
     };
     allIconsMap[importName] = icon;
     return icon;
   });
+console.timeEnd('icons');
+
+function addSuffixes(term, minLength){
+  if (term == null) {
+    return undefined;
+  }
+
+  const tokens = [];
+
+  for (let i = 0; i <= term.length - minLength; i+= 1) {
+    tokens.push(term.slice(i).toLowerCase());
+  }
+
+  return tokens;
+}
+
+console.time('addAll');
+const miniSearch = new MiniSearch({
+  fields: ['searchable'], // fields to index for full-text search
+  processTerm: (term) => addSuffixes(term, 3),
+  storeFields: ['name' ,'Component'],
+  searchOptions: {
+    processTerm: MiniSearch.getDefault('processTerm'),
+    prefix: true,
+    fuzzy: 0.1, // Allow some typo
+    boostDocument: (documentId, term, storedFields) => {
+      // Show exact match first
+      return term.toLowerCase() === storedFields.name.toLowerCase() ? 2 : 1;
+    }
+  }
+});
+
+miniSearch.addAll(allIcons);
+console.timeEnd('addAll');
 
 /**
  * Returns the last defined value that has been passed in [value]
@@ -578,10 +608,17 @@ export default function SearchIcons() {
   }, [setSelectedIcon]);
 
   const icons = React.useMemo(() => {
-    const keys = query === '' ? null : searchIndex.search(query, { limit: 3000 });
-    return (keys === null ? allIcons : keys.map((key) => allIconsMap[key])).filter(
-      (icon) => theme === icon.theme,
-    );
+    if (query === '') {
+      return allIcons.filter((icon) => theme === icon.theme);
+    }
+
+    console.time('Search');
+    const keys = miniSearch.search(query);
+    console.timeEnd('Search');
+
+    return keys
+      .map((key) => allIconsMap[key.id])
+      .filter((icon) => theme === icon.theme);
   }, [query, theme]);
 
   const deferredIcons = React.useDeferredValue(icons);
