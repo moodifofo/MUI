@@ -172,40 +172,46 @@ Follow the [Modal accessibility section](/material-ui/react-modal/#accessibility
 
 ### useDialogs
 
-You can create and manipulate dialogs imperatively with the [`useDialogs()`](https://mui.com/toolpad/core/react-use-dialogs/) API in `@toolpad/core`. This hook handles
+You can create and manipulate dialogs imperatively with the [`useDialogs()`](https://mui.com/toolpad/core/react-use-dialogs/) API in `@toolpad/core`. This hook handles:
 
 - state management for opening and closing dialogs
 - passing data to dialogs and receiving results back from them
 - stacking multiple dialogs
-- themed, asynchronous versions of `window.alert()`, `window.confirm()` and `window.prompt()`
+- themed, asynchronous versions of `window.alert()`, `window.confirm()`, and `window.prompt()`
+
+```tsx
+import { DialogsProvider, useDialogs } from '@toolpad/core/useDialogs';
+
+export default function DeleteButton() {
+  const dialogs = useDialogs();
+  const handleDelete = async () => {
+    const confirmed = await dialogs.open(({ open, onClose }) => (
+      <Dialog open={open} onClose={() => onClose(false)}>
+        Are you sure you want to delete this item?
+        <button type="button" onClick={() => onClose(false)}>
+          Cancel
+        </button>
+        <button type="button" onClick={() => onClose(true)}>
+          Delete
+        </button>
+      </Dialog>
+    ));
+
+    if (confirmed) {
+      await dialogs.alert('Successfully deleted!');
+    }
+  };
+
+  return (
+    <DialogsProvider>
+      <button type="button" onClick={handleDelete}>
+        Delete
+      </button>
+    </DialogsProvider>
+  );
+}
+```
 
 The following example demonstrates some of these features:
 
 {{"demo": "ToolpadDialogsNoSnap.js", "defaultCodeOpen": false}}
-
-```tsx
-const handleDelete = async () => {
-  const id = await dialogs.prompt('Enter the ID to delete', {
-    okText: 'Delete',
-    cancelText: 'Cancel',
-  });
-
-  if (id) {
-    const deleteConfirmed = await dialogs.confirm(
-      `Are you sure you want to delete "${id}"?`,
-    );
-    if (deleteConfirmed) {
-      try {
-        setIsDeleting(true);
-        await mockApiDelete(id);
-        dialogs.alert('Deleted!');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        await dialogs.open(MyCustomDialog, { id, error: message });
-      } finally {
-        setIsDeleting(false);
-      }
-    }
-  }
-};
-```
