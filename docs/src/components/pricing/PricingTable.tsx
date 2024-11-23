@@ -16,6 +16,11 @@ import { Link } from '@mui/docs/Link';
 import IconImage from 'docs/src/components/icon/IconImage';
 import LicenseModelSwitch from 'docs/src/components/pricing/LicenseModelSwitch';
 import { useLicenseModel } from 'docs/src/components/pricing/LicenseModelContext';
+import BusinessIcon from '@mui/icons-material/Business';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import PrioritySupportSwitch from 'docs/src/components/pricing/PrioritySupportSwitch';
+import InfoPrioritySupport from 'docs/src/components/pricing/InfoPrioritySupport';
+import { usePrioritySupport } from 'docs/src/components/pricing/PrioritySupportContext';
 
 const planInfo = {
   community: {
@@ -26,13 +31,19 @@ const planInfo = {
   pro: {
     iconName: 'pricing/x-plan-pro',
     title: 'Pro',
-    description: 'Best for professional developers building enterprise or data-rich applications.',
+    description: 'Best for professional developers or startups building data-rich applications.',
   },
   premium: {
     iconName: 'pricing/x-plan-premium',
     title: 'Premium',
     description:
-      'The most advanced features for data-rich applications, as well as the highest priority for support.',
+      'The most advanced features for data-rich applications along with standard support.',
+  },
+  enterprise: {
+    iconName: 'pricing/x-plan-enterprise',
+    title: 'Enterprise',
+    description:
+      'All features of Premium coupled with enterprise-grade support and customer success.',
   },
 } as const;
 
@@ -46,7 +57,7 @@ export function PlanName({
   plan,
   disableDescription = false,
 }: {
-  plan: 'community' | 'pro' | 'premium';
+  plan: 'community' | 'pro' | 'premium' | 'enterprise';
   disableDescription?: boolean;
 }) {
   const { title, iconName, description } = planInfo[plan];
@@ -85,7 +96,9 @@ export function PlanName({
 }
 
 interface PlanPriceProps {
-  plan: 'community' | 'pro' | 'premium';
+  plan: 'community' | 'pro' | 'premium' | 'enterprise';
+  // checked?: boolean;
+  // handleChange2?: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function PlanPrice(props: PlanPriceProps) {
@@ -95,14 +108,16 @@ export function PlanPrice(props: PlanPriceProps) {
   const annual = licenseModel === 'annual';
   const planPriceMinHeight = 24;
 
+  const { prioritySupport } = usePrioritySupport();
+
   if (plan === 'community') {
     return (
       <React.Fragment>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 7 }}>
           <Typography
             variant="h3"
             component="div"
-            sx={{ fontWeight: 'bold', color: 'success.600', mt: 6 }}
+            sx={{ fontWeight: 'bold', color: 'success.600' }}
           >
             $0
           </Typography>
@@ -114,29 +129,26 @@ export function PlanPrice(props: PlanPriceProps) {
     );
   }
 
-  const monthlyDisplay = annual;
-
-  const priceUnit = monthlyDisplay ? '/ month / dev' : '/ dev';
+  const priceUnit = annual ? '/ year / dev' : '/ dev';
   const getPriceExplanation = (displayedValue: number) => {
-    if (!annual) {
-      return `$${displayedValue}/dev billed once.`;
+    if (annual) {
+      return `Equivalent to $${displayedValue} / month / dev`;
     }
-    return monthlyDisplay
-      ? `Billed annually at $${displayedValue}/dev.`
-      : `$${displayedValue}/dev/month billed annualy.`;
+    return '';
   };
 
   if (plan === 'pro') {
-    const monthlyValue = annual ? 15 : 15 * 3;
-    const annualValue = monthlyValue * 12;
+    const annualValue = 180;
+    const perpetualValue = annualValue * 3;
+    const monthlyValueForAnnual = annualValue / 12;
 
-    const mainDisplayValue = monthlyDisplay ? monthlyValue : annualValue;
-    const priceExplanation = getPriceExplanation(monthlyDisplay ? annualValue : monthlyValue);
+    const mainDisplayValue = annual ? annualValue : perpetualValue;
+    const priceExplanation = getPriceExplanation(annual ? monthlyValueForAnnual : perpetualValue);
 
     return (
       <React.Fragment>
         <LicenseModelSwitch />
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1, mb: 0 }}>
           <Typography
             variant="h3"
             component="div"
@@ -154,64 +166,120 @@ export function PlanPrice(props: PlanPriceProps) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 2,
-            mb: 2,
+            mb: 3,
             minHeight: planPriceMinHeight,
           }}
         >
-          {(annual || monthlyDisplay) && (
-            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+          {
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', textAlign: 'center', fontSize: '0.8125rem' }}
+            >
               {priceExplanation}
             </Typography>
-          )}
+          }
         </Box>
       </React.Fragment>
     );
   }
-  // else Premium
-  const premiumMonthlyValue = annual ? 49 : 49 * 3;
-  const premiumAnnualValue = premiumMonthlyValue * 12;
 
-  const premiumDisplayedValue = monthlyDisplay ? premiumMonthlyValue : premiumAnnualValue;
-  const priceExplanation = getPriceExplanation(
-    monthlyDisplay ? premiumAnnualValue : premiumMonthlyValue,
-  );
+  if (plan === 'premium') {
+    const premiumAnnualValue = 588;
+    const premiumPerpetualValue = premiumAnnualValue * 3;
+    const premiumMonthlyValueForAnnual = premiumAnnualValue / 12;
 
+    const premiumAnnualValueWithPrioritySupport = premiumAnnualValue + 399;
+    const premiumPerpetualValueWithPrioritySupport = premiumPerpetualValue + 399;
+    const premiumMonthlyValueForAnnualWithPrioritySupport = 82; // premiumAnnualValueWithPrioritySupport / 12;
+
+    const priceExplanation = getPriceExplanation(
+      prioritySupport
+        ? premiumMonthlyValueForAnnualWithPrioritySupport
+        : premiumMonthlyValueForAnnual,
+    );
+
+    let premiumDisplayedValue: number = premiumAnnualValue;
+    if (annual && prioritySupport) {
+      premiumDisplayedValue = premiumAnnualValueWithPrioritySupport;
+    } else if (!annual && prioritySupport) {
+      premiumDisplayedValue = premiumPerpetualValueWithPrioritySupport;
+    } else if (annual && !prioritySupport) {
+      premiumDisplayedValue = premiumAnnualValue;
+    } else if (!annual && !prioritySupport) {
+      premiumDisplayedValue = premiumPerpetualValue;
+    }
+
+    return (
+      <React.Fragment>
+        <LicenseModelSwitch />
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mt: 1,
+            mb: 0,
+          }}
+        >
+          <Typography
+            variant="h3"
+            component="div"
+            sx={{ fontWeight: 'bold', color: 'primary.main' }}
+          >
+            {formatCurrency(premiumDisplayedValue)}
+          </Typography>
+          <Box sx={{ width: 5 }} />
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: '3px' }}>
+            {priceUnit}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            mb: 3,
+            minHeight: planPriceMinHeight,
+          }}
+        >
+          {
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', textAlign: 'center', fontSize: '0.8125rem' }}
+            >
+              {priceExplanation}
+            </Typography>
+          }
+        </Box>
+        <PrioritySupportSwitch />
+      </React.Fragment>
+    );
+  }
+
+  // else enterprise
   return (
     <React.Fragment>
-      <LicenseModelSwitch />
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1, mb: 4 }}>
-        <Box sx={{ width: 10 }} />
-        <Typography variant="h3" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          {formatCurrency(premiumDisplayedValue)}
-        </Typography>
-        <Box sx={{ width: 5 }} />
-        <Typography variant="body2" sx={{ color: 'text.secondary', mt: '3px' }}>
-          {priceUnit}
-        </Typography>
-      </Box>
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          gap: 2,
-          mb: 2,
-          minHeight: planPriceMinHeight,
+          flexDirection: 'column',
+          justifyContent: 'center',
+          mt: 4,
         }}
       >
-        {(annual || monthlyDisplay) && (
-          <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-            {priceExplanation}
-          </Typography>
-        )}
+        <BusinessIcon sx={{ fontSize: 65, color: 'text.tertiary' }} />
       </Box>
+      <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
+        Custom pricing
+      </Typography>
     </React.Fragment>
   );
 }
 
 function Info(props: { value: React.ReactNode; metadata?: React.ReactNode }) {
   const { value, metadata } = props;
+
   return (
     <React.Fragment>
       {typeof value === 'string' ? (
@@ -385,7 +453,7 @@ function RowHead({
       sx={[
         {
           justifyContent: 'flex-start',
-          borderRadius: 1,
+          borderRadius: '12px 0 0 12px',
           p: 1,
           transition: 'none',
           typography: 'body2',
@@ -635,7 +703,12 @@ const rowHeaders: Record<string, React.ReactNode> = {
   'core-support': (
     <ColumnHead
       {...{
-        label: 'Technical support for MUI Core',
+        label: (
+          <React.Fragment>
+            Technical support for <Box component="span" sx={{ display: ['none', 'block'] }} />
+            MUI Core
+          </React.Fragment>
+        ),
         tooltip:
           'Support for MUI Core (for example Material UI) is provided by the community. MUI Core maintainers focus on solving root issues to support the community at large.',
       }}
@@ -644,9 +717,22 @@ const rowHeaders: Record<string, React.ReactNode> = {
   'x-support': (
     <ColumnHead
       {...{
-        label: 'Technical support for MUI X',
+        label: (
+          <React.Fragment>
+            Technical support for <Box component="span" sx={{ display: ['none', 'block'] }} />
+            MUI X
+          </React.Fragment>
+        ),
         tooltip:
           'You can ask for technical support, report bugs and submit unlimited feature requests to the advanced components. We take your subscription plan as one of the prioritization criteria.',
+      }}
+    />
+  ),
+  'priority-support': (
+    <ColumnHead
+      {...{
+        label: 'Priority support',
+        tooltip: 'Option to buy priority support as an add-on.',
       }}
     />
   ),
@@ -666,7 +752,10 @@ const rowHeaders: Record<string, React.ReactNode> = {
   ),
   'response-time': (
     <ColumnHead
-      {...{ label: 'Guaranteed response time', tooltip: 'Maximum lead time for each response.' }}
+      {...{
+        label: 'Guaranteed response time',
+        tooltip: 'Maximum lead time for each response, only working days are counted.',
+      }}
     />
   ),
   'pre-screening': (
@@ -695,6 +784,14 @@ const rowHeaders: Record<string, React.ReactNode> = {
             custom agreements
           </React.Fragment>
         ),
+      }}
+    />
+  ),
+  'customer-success': (
+    <ColumnHead
+      {...{
+        label: 'Customer success manager',
+        tooltip: 'A dedicated person to help you get the most out of MUI products.',
       }}
     />
   ),
@@ -812,12 +909,14 @@ const communityData: Record<string, React.ReactNode> = {
   // Support
   'core-support': <Info value="Community" />,
   'x-support': <Info value="Community" />,
+  'priority-support': no,
   'tech-advisory': no,
   'support-duration': no,
   'response-time': no,
   'pre-screening': no,
   'issue-escalation': no,
   'security-questionnaire': no,
+  'customer-success': no,
 };
 
 const proData: Record<string, React.ReactNode> = {
@@ -916,12 +1015,14 @@ const proData: Record<string, React.ReactNode> = {
   // Support
   'core-support': <Info value="Community" />,
   'x-support': <Info value={yes} metadata="Priority over Community" />,
+  'priority-support': no,
   'tech-advisory': no,
   'support-duration': <Info value="1 year" />,
   'response-time': no,
   'pre-screening': no,
   'issue-escalation': no,
   'security-questionnaire': <Info value="Available from 10+ devs" />,
+  'customer-success': no,
 };
 
 const premiumData: Record<string, React.ReactNode> = {
@@ -1017,26 +1118,121 @@ const premiumData: Record<string, React.ReactNode> = {
   'mui-x-development-perpetual': <Info value="Perpetual" />,
   'mui-x-updates': <Info value="1 year" />,
   // Support
-  'core-support': <Info value={pending} metadata="Priority add-on only" />,
+  'core-support': <InfoPrioritySupport value={yes} value2="Community" />,
   'x-support': <Info value={yes} metadata="Priority over Pro" />,
+  'priority-support': <PrioritySupportSwitch />,
   'tech-advisory': pending,
   'support-duration': <Info value="1 year" />,
-  'response-time': (
-    <Info
-      value={pending}
-      metadata={
-        <React.Fragment>
-          Available later on
-          <br />
-          2 business days.
-          <br />1 business day (priority add-on only)
-        </React.Fragment>
-      }
-    />
-  ),
-  'pre-screening': <Info value={pending} metadata="4 hours (priority add-on only)" />,
-  'issue-escalation': <Info value={pending} metadata="Priority add-on only" />,
+  'response-time': <InfoPrioritySupport value={yes} metadata="24 hours" value2={no} />,
+  'pre-screening': <InfoPrioritySupport value={yes} metadata="4 hours" value2={no} />,
+  'issue-escalation': <InfoPrioritySupport value={yes} value2={no} />,
   'security-questionnaire': <Info value="Available from 4+ devs" />,
+  'customer-success': no,
+};
+
+const enterpriseData: Record<string, React.ReactNode> = {
+  // Core
+  'Base UI': yes,
+  'MUI System': yes,
+  'Material UI': yes,
+  'Joy UI': yes,
+  // MUI X
+  // data grid - columns
+  'data-grid/column-groups': yes,
+  'data-grid/column-spanning': yes,
+  'data-grid/column-resizing': yes,
+  'data-grid/column-autosizing': yes,
+  'data-grid/column-reorder': yes,
+  'data-grid/column-pinning': yes,
+  // data grid - rows
+  'data-grid/row-height': yes,
+  'data-grid/row-spanning': yes,
+  'data-grid/row-reordering': yes,
+  'data-grid/row-pinning': yes,
+  'data-grid/row-selection': yes,
+  'data-grid/row-multiselection': yes,
+  'data-grid/row-cell-selection': yes,
+  // data grid - filter
+  'data-grid/filter-quick': yes,
+  'data-grid/filter-column': yes,
+  'data-grid/header-filters': yes,
+  'data-grid/filter-multicolumn': yes,
+  'data-grid/column-sorting': yes,
+  'data-grid/multi-column-sorting': yes,
+  'data-grid/pagination': yes,
+  'data-grid/pagination-large': yes,
+  // data grid - edit
+  'data-grid/edit-row': yes,
+  'data-grid/edit-cell': yes,
+  // data grid - export
+  'data-grid/file-csv': yes,
+  'data-grid/file-print': yes,
+  'data-grid/file-clipboard-copy': yes,
+  'data-grid/file-clipboard-paste': yes,
+  'data-grid/file-excel': yes,
+  'data-grid/customizable-components': yes,
+  'data-grid/virtualize-column': yes,
+  'data-grid/virtualize-row': yes,
+  'data-grid/tree-data': yes,
+  'data-grid/master-detail': yes,
+  'data-grid/grouping': yes,
+  'data-grid/aggregation': yes,
+  'data-grid/pivoting': pending,
+  'data-grid/accessibility': yes,
+  'data-grid/keyboard-nav': yes,
+  'data-grid/localization': yes,
+  'date-picker/simple': yes,
+  'date-picker/range': yes,
+
+  // charts - components
+  'charts/line': yes,
+  'charts/bar': yes,
+  'charts/scatter': yes,
+  'charts/pie': yes,
+  'charts/sparkline': yes,
+  'charts/gauge': yes,
+  'charts/heatmap': yes,
+  'charts/treemap': pending,
+  'charts/radar': pending,
+  'charts/funnel': pending,
+  'charts/sankey': pending,
+  'charts/gantt': pending,
+  'charts/gantt-advanced': toBeDefined,
+  'charts/candlestick': toBeDefined,
+  'charts/large-dataset': toBeDefined,
+  // charts - features
+  'charts/legend': yes,
+  'charts/tooltip': yes,
+  'charts/zoom-and-pan': yes,
+  'charts/export': pending,
+  // charts - datagrid
+  'charts/cell-with-charts': yes,
+  'charts/filter-interaction': pending,
+  'charts/selection-interaction': pending,
+  // Tree View
+  'tree-view/simple-tree-view': yes,
+  'tree-view/rich-tree-view': yes,
+  'tree-view/selection': yes,
+  'tree-view/multi-selection': yes,
+  'tree-view/inline-editing': yes,
+  'tree-view/drag-to-reorder': yes,
+  'tree-view/virtualization': pending,
+  // general
+  'mui-x-production': yes,
+  'mui-x-development': <Info value="1 year" />,
+  'mui-x-development-perpetual': <Info value="Perpetual" />,
+  'mui-x-updates': <Info value="1 year" />,
+  // Support
+  'core-support': yes,
+  'x-support': <Info value={yes} metadata="Priority over Premium" />,
+  'priority-support': <Info value="Included" />,
+  'tech-advisory': pending,
+  'support-duration': <Info value="1 year" />,
+  'response-time': <Info value={yes} metadata="24 hours" />,
+  'pre-screening': <Info value={yes} metadata="4 hours" />,
+  'issue-escalation': <Info value={yes} />,
+  'security-questionnaire': <Info value="Available from 4+ devs" />,
+  'customer-success': yes,
 };
 
 function RowCategory(props: BoxProps) {
@@ -1130,13 +1326,13 @@ function StickyHead({
       <Container
         sx={{
           display: 'grid',
-          gridTemplateColumns: `minmax(160px, 1fr) repeat(3, minmax(240px, 1fr))`,
+          gridTemplateColumns: `minmax(160px, 1fr) repeat(4, minmax(240px, 1fr))`,
         }}
       >
         <Typography variant="body2" sx={{ fontWeight: 'bold', px: 2, py: 1 }}>
           Plans
         </Typography>
-        {(['community', 'pro', 'premium'] as const).map((plan) => (
+        {(['community', 'pro', 'premium', 'enterprise'] as const).map((plan) => (
           <Box key={plan} sx={{ px: 2, py: 1 }}>
             <PlanName plan={plan} disableDescription />
           </Box>
@@ -1171,6 +1367,7 @@ function renderMasterRow(key: string, gridSx: object, plans: Array<any>) {
           {id === 'community' && communityData[key]}
           {id === 'pro' && proData[key]}
           {id === 'premium' && premiumData[key]}
+          {id === 'enterprise' && enterpriseData[key]}
         </Cell>
       ))}
     </Box>
@@ -1229,6 +1426,22 @@ function PricingTableBuyPremium() {
   );
 }
 
+function PricingTableBuyEnterprise() {
+  return (
+    <Button
+      component={Link}
+      noLinkStyle
+      href="mailto:sales@mui.com"
+      variant="contained"
+      fullWidth
+      endIcon={<KeyboardArrowRightRounded />}
+      sx={{ py: 1, mt: 'auto' }}
+    >
+      Contact Sales
+    </Button>
+  );
+}
+
 const StyledCollapse = styled(Collapse, {
   name: 'MuiSlider',
   slot: 'Track',
@@ -1247,11 +1460,11 @@ const StyledCollapse = styled(Collapse, {
 
 export default function PricingTable({
   columnHeaderHidden,
-  plans = ['community', 'pro', 'premium'],
+  plans = ['community', 'pro', 'premium', 'enterprise'],
   ...props
 }: BoxProps & {
   columnHeaderHidden?: boolean;
-  plans?: Array<'community' | 'pro' | 'premium'>;
+  plans?: Array<'community' | 'pro' | 'premium' | 'enterprise'>;
 }) {
   const router = useRouter();
   const [dataGridCollapsed, setDataGridCollapsed] = React.useState(false);
@@ -1307,7 +1520,7 @@ export default function PricingTable({
   const renderNestedRow = (key: string) => renderMasterRow(key, nestedGridSx, plans);
 
   return (
-    <Box ref={tableRef} {...props} sx={{ pt: 8, ...props.sx }}>
+    <Box ref={tableRef} {...props} sx={{ pt: 8, width: '100%', ...props.sx }}>
       <StickyHead container={tableRef} disableCalculation={columnHeaderHidden} />
       {!columnHeaderHidden && (
         <Box sx={gridSx}>
@@ -1341,6 +1554,13 @@ export default function PricingTable({
             <PlanPrice plan="premium" />
             <PricingTableBuyPremium />
           </Box>
+          <ColumnHeadHighlight>
+            <div>
+              <PlanName plan="enterprise" />
+              <PlanPrice plan="enterprise" />
+            </div>
+            <PricingTableBuyEnterprise />
+          </ColumnHeadHighlight>
         </Box>
       )}
       <RowHead startIcon={<IconImage name="product-core" width={28} height={28} />}>
@@ -1371,6 +1591,9 @@ export default function PricingTable({
           {dataGridUnfoldMore}
         </Cell>
         <Cell sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>
+          {dataGridUnfoldMore}
+        </Cell>
+        <Cell highlighted sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>
           {dataGridUnfoldMore}
         </Cell>
         <Button
@@ -1522,6 +1745,9 @@ export default function PricingTable({
           {chartsUnfoldMore}
         </Cell>
         <Cell sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>{chartsUnfoldMore}</Cell>
+        <Cell highlighted sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>
+          {chartsUnfoldMore}
+        </Cell>
         <Button
           fullWidth
           onClick={() => setChartsCollapsed((bool) => !bool)}
@@ -1627,6 +1853,9 @@ export default function PricingTable({
         <Cell sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>
           {treeViewUnfoldMore}
         </Cell>
+        <Cell highlighted sx={{ display: { xs: 'none', md: 'flex' }, minHeight: 60 }}>
+          {treeViewUnfoldMore}
+        </Cell>
         <Button
           fullWidth
           onClick={() => setTreeViewCollapsed((bool) => !bool)}
@@ -1690,18 +1919,24 @@ export default function PricingTable({
       <PricingTableDevelopment renderRow={renderRow} />
       {divider}
       {renderRow('mui-x-updates')}
-      <RowHead>Support</RowHead>
-      {renderRow('core-support')}
-      {divider}
+      <RowHead startIcon={<SupportAgentIcon color="primary" width={28} height={28} />}>
+        Support
+      </RowHead>
       {renderRow('x-support')}
       {divider}
       {renderRow('support-duration')}
+      {divider}
+      {renderRow('priority-support')}
+      {divider}
+      {renderRow('core-support')}
       {divider}
       {renderRow('response-time')}
       {divider}
       {renderRow('pre-screening')}
       {divider}
       {renderRow('issue-escalation')}
+      {divider}
+      {renderRow('customer-success')}
       {divider}
       {renderRow('security-questionnaire')}
       {divider}
