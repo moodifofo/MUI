@@ -5,7 +5,6 @@ import Masonry from '@mui/lab/Masonry';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
-import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 
@@ -27,7 +26,7 @@ export default function MasonryWithVariableHeightItems() {
           <Paper key={index}>
             <StyledAccordion sx={{ minHeight: height }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>Accordion {index + 1}</Typography>
+                <span style={{ textAlign: 'left' }}>Accordion {index + 1}</span>
               </AccordionSummary>
               <AccordionDetails>Contents</AccordionDetails>
             </StyledAccordion>
